@@ -1,0 +1,287 @@
+/* =========================
+   THEME VARIABLES
+========================= */
+:root {
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --text: #1a1a1a;
+    --text-muted: #666;
+
+    --border: #ccc;
+    --border-thick: #2c3e50;
+
+    --cell-bg: #fff;
+    --cell-selected: #bbdefb;
+    --cell-highlight: #e3f2fd;
+    --cell-fixed: #f8f9fa;
+
+    --primary: #3498db;
+
+    --error: #e74c3c;
+    --error-bg: #fadbd8;
+
+    --btn-text: #fff;
+}
+
+/* Dark Mode */
+body.dark {
+    --bg: #121212;
+    --surface: #1e1e1e;
+    --text: #e0e0e0;
+    --text-muted: #aaa;
+
+    --border: #444;
+    --border-thick: #888;
+
+    --cell-bg: #2a2a2a;
+    --cell-selected: #1976d2;
+    --cell-highlight: #334e68;
+    --cell-fixed: #1f1f1f;
+
+    --error: #ff5252;
+    --error-bg: #4a0000;
+}
+
+/* =========================
+   BASE RESET
+========================= */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+}
+
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+
+    display: flex;
+    justify-content: center;
+
+    transition: background-color 0.3s, color 0.3s;
+
+    touch-action: manipulation;
+}
+
+/* =========================
+   APP LAYOUT
+========================= */
+.app-container {
+    width: 100%;
+    max-width: 500px;
+    padding: 20px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* Header */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Inputs & Buttons */
+select,
+button {
+    background: var(--surface);
+    color: var(--text);
+
+    border: 1px solid var(--border);
+    border-radius: 8px;
+
+    padding: 8px 12px;
+    font-size: 1rem;
+
+    cursor: pointer;
+}
+
+button:active {
+    transform: scale(0.95);
+}
+
+/* =========================
+   STATUS BAR
+========================= */
+.status-bar {
+    display: flex;
+    justify-content: space-between;
+
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+/* =========================
+   SUDOKU GRID
+========================= */
+.sudoku-grid {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    grid-template-rows: repeat(9, 1fr);
+
+    width: 100%;
+    aspect-ratio: 1;
+
+    border: 2px solid var(--border-thick);
+    background: var(--border-thick);
+    gap: 1px;
+}
+
+/* Cells */
+.cell {
+    background: var(--cell-bg);
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    font-size: 1.5rem;
+    font-weight: 600;
+
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+/* Cell States */
+.cell.fixed {
+    background: var(--cell-fixed);
+}
+
+.cell.user-input {
+    color: var(--primary);
+}
+
+.cell.selected {
+    background: var(--cell-selected) !important;
+}
+
+.cell.highlight {
+    background: var(--cell-highlight);
+}
+
+.cell.error {
+    background: var(--error-bg);
+    color: var(--error);
+}
+
+.cell.animation-pop {
+    animation: pop 0.2s ease-out;
+}
+
+/* 3x3 grid borders */
+.cell:nth-child(3n) {
+    border-right: 2px solid var(--border-thick);
+}
+
+.cell:nth-child(9n) {
+    border-right: none;
+}
+
+.cell:nth-child(n+19):nth-child(-n+27),
+.cell:nth-child(n+46):nth-child(-n+54) {
+    border-bottom: 2px solid var(--border-thick);
+}
+
+/* Pop animation */
+@keyframes pop {
+    0% { transform: scale(0.8); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* =========================
+   CONTROLS & NUMPAD
+========================= */
+.controls,
+.numpad {
+    display: grid;
+    gap: 10px;
+}
+
+.controls {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.numpad {
+    grid-template-columns: repeat(5, 1fr);
+    margin-top: 10px;
+}
+
+/* Control Buttons */
+.controls button {
+    font-size: 0.85rem;
+    padding: 10px 5px;
+}
+
+/* Numpad Buttons */
+.numpad button {
+    font-size: 1.5rem;
+    padding: 15px 0;
+
+    border-radius: 12px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* =========================
+   WIN SCREEN
+========================= */
+#win-screen {
+    position: fixed;
+    inset: 0;
+
+    background: rgba(0,0,0,0.8);
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    z-index: 100;
+}
+
+#win-screen.hidden {
+    display: none;
+}
+
+.win-content {
+    background: var(--surface);
+    color: var(--text);
+
+    padding: 40px;
+    border-radius: 20px;
+
+    text-align: center;
+
+    animation: dropIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.win-content h2 {
+    margin-bottom: 10px;
+    color: #f1c40f;
+}
+
+.win-content button {
+    margin-top: 20px;
+
+    background: var(--primary);
+    color: white;
+
+    border: none;
+    padding: 10px 20px;
+}
+
+/* Win animation */
+@keyframes dropIn {
+    0% {
+        transform: translateY(-50px) scale(0.8);
+        opacity: 0;
+    }
+    100% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
