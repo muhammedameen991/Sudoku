@@ -1,245 +1,273 @@
-/* --- Design System & Theme Variables --- */
-:root {
-    /* Light Mode Palette */
-    --bg: #f4f5f7;
-    --surface: #ffffff;
-    --text: #1a1a1a;
-    --text-muted: #666;
-    --border: #ccc;
-    --border-thick: #2c3e50;
-    --cell-bg: #fff;
-    --cell-selected: #bbdefb;
-    --cell-highlight: #e3f2fd;
-    --cell-fixed: #f8f9fa;
-    --error: #e74c3c;
-    --error-bg: #fadbd8;
-    --primary: #3498db;
-    --p1-color: #2980b9; /* Player 1 Blue */
-    --p2-color: #c0392b; /* Player 2 Red */
-    --btn-shadow: rgba(0, 0, 0, 0.1);
+/**
+ * SUDOKU ENGINE - CORE LOGIC & MULTIPLAYER
+ */
+
+// --- Game State Variables ---
+let board = [];      // Current state of the grid
+let solution = [];   // Hidden solved grid
+let initial = [];    // Fixed cells (starting numbers)
+let ownership = [];  // Tracks P1/P2 cell ownership for PvP
+
+let gameMode = 'solo'; 
+let currentPlayer = 1;
+let p1Score = 0, p2Score = 0;
+let mistakes = 0;
+let timer = 0;
+let timerInterval = null;
+let selectedCell = null;
+let isPlaying = false;
+
+// --- Sound Engine (Web Audio API) ---
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function playBeep(freq, duration) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
 }
 
-body.dark {
-    /* Dark Mode Palette */
-    --bg: #121212;
-    --surface: #1e1e1e;
-    --text: #e0e0e0;
-    --text-muted: #aaa;
-    --border: #444;
-    --border-thick: #888;
-    --cell-bg: #2a2a2a;
-    --cell-selected: #1976d2;
-    --cell-highlight: #334e68;
-    --cell-fixed: #1f1f1f;
-    --error: #ff5252;
-    --error-bg: #4a0000;
-    --p1-color: #5dade2;
-    --p2-color: #e74c3c;
-    --btn-shadow: rgba(0, 0, 0, 0.4);
+// --- Sudoku Generation & Backtracking ---
+function isValidMove(grid, r, c, n) {
+    for (let i = 0; i < 9; i++) {
+        if (grid[r][i] === n || grid[i][c] === n) return false;
+    }
+    const startRow = r - r % 3, startCol = c - c % 3;
+    for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+            if (grid[startRow + i][startCol + j] === n) return false;
+        }
+    }
+    return true;
 }
 
-/* --- Layout Defaults --- */
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-    user-select: none; /* Prevents text selection during rapid gameplay */
-    -webkit-tap-highlight-color: transparent;
+function solveSudoku(grid) {
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (grid[r][c] === 0) {
+                for (let n = 1; n <= 9; n++) {
+                    if (isValidMove(grid, r, c, n)) {
+                        grid[r][c] = n;
+                        if (solveSudoku(grid)) return true;
+                        grid[r][c] = 0;
+                    }
+                }
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
-body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    background-color: var(--bg);
-    color: var(--text);
-    display: flex;
-    justify-content: center;
-    transition: background-color 0.3s, color 0.3s;
-    touch-action: manipulation; /* Optimizes for mobile tapping */
+function generatePuzzle(difficulty) {
+    // 1. Create empty board
+    board = Array(9).fill().map(() => Array(9).fill(0));
+    
+    // 2. Fill diagonal 3x3 boxes (random but valid)
+    for (let i = 0; i < 9; i += 3) {
+        for (let r = 0; r < 3; r++) {
+            for (let c = 0; c < 3; c++) {
+                let n;
+                do { n = Math.floor(Math.random() * 9) + 1; } 
+                while (!isValidMove(board, i + r, i + c, n));
+                board[i + r][i + c] = n;
+            }
+        }
+    }
+
+    // 3. Solve fully
+    solveSudoku(board);
+    solution = board.map(row => [...row]);
+
+    // 4. Remove numbers based on difficulty
+    let attempts = difficulty === 'easy' ? 35 : difficulty === 'medium' ? 45 : 55;
+    while (attempts > 0) {
+        let r = Math.floor(Math.random() * 9);
+        let c = Math.floor(Math.random() * 9);
+        if (board[r][c] !== 0) {
+            board[r][c] = 0;
+            attempts--;
+        }
+    }
+    initial = board.map(row => [...row]);
+    ownership = Array(9).fill().map(() => Array(9).fill(0));
 }
 
-.app-container {
-    width: 100%;
-    max-width: 450px;
-    padding: 15px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+// --- UI Rendering ---
+function renderBoard() {
+    const gridEl = document.getElementById('game-board');
+    gridEl.innerHTML = '';
+
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            if (initial[r][c] !== 0) cell.classList.add('fixed');
+            
+            // Selection & Highlighting
+            if (selectedCell && selectedCell[0] === r && selectedCell[1] === c) {
+                cell.classList.add('selected');
+            } else if (selectedCell && (selectedCell[0] === r || selectedCell[1] === c)) {
+                cell.classList.add('highlight');
+            }
+
+            if (board[r][c] !== 0) {
+                cell.textContent = board[r][c];
+                if (gameMode === 'pvp') {
+                    cell.classList.add(ownership[r][c] === 1 ? 'p1-owned' : 'p2-owned');
+                } else if (board[r][c] !== solution[r][c] && document.getElementById('auto-check').checked) {
+                    cell.classList.add('error');
+                }
+            }
+
+            cell.onclick = () => {
+                selectedCell = [r, c];
+                playBeep(600, 0.05);
+                renderBoard();
+            };
+            gridEl.appendChild(cell);
+        }
+    }
+    checkWin();
 }
 
-/* --- Header & Status Bar --- */
-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 5px;
+// --- Input Handling ---
+function handleInput(n) {
+    if (!selectedCell || !isPlaying) return;
+    const [r, c] = selectedCell;
+
+    // Prevent editing fixed cells or correctly solved PvP cells
+    if (initial[r][c] !== 0 || (gameMode === 'pvp' && board[r][c] === solution[r][c])) return;
+
+    if (gameMode === 'solo') {
+        board[r][c] = n;
+        if (n !== 0 && n !== solution[r][c]) {
+            mistakes++;
+            document.getElementById('mistake-count').textContent = mistakes;
+            playBeep(150, 0.15);
+            if (mistakes >= 3) {
+                alert("Game Over! 3 Mistakes made.");
+                isPlaying = false;
+            }
+        } else {
+            playBeep(800, 0.05);
+        }
+    } else {
+        // PvP Mode Logic
+        if (n === 0) return; // Erase disabled in PvP
+        if (n === solution[r][c]) {
+            board[r][c] = n;
+            ownership[r][c] = currentPlayer;
+            currentPlayer === 1 ? p1Score++ : p2Score++;
+            playBeep(900, 0.08);
+            // Player keeps turn on correct hit
+        } else {
+            currentPlayer = currentPlayer === 1 ? 2 : 1;
+            playBeep(200, 0.1);
+        }
+        updatePvPDisplay();
+    }
+    renderBoard();
 }
 
-.status-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 0.9rem;
-    font-weight: bold;
-    color: var(--text-muted);
-    min-height: 40px;
+function updatePvPDisplay() {
+    document.getElementById('p1-score').textContent = p1Score;
+    document.getElementById('p2-score').textContent = p2Score;
+    document.getElementById('p1-score-box').classList.toggle('p1-active', currentPlayer === 1);
+    document.getElementById('p2-score-box').classList.toggle('p2-active', currentPlayer === 2);
 }
 
-.hidden {
-    display: none !important;
+// --- Game Control ---
+function startNewGame(mode) {
+    gameMode = mode;
+    isPlaying = true;
+    mistakes = 0;
+    timer = 0;
+    currentPlayer = 1;
+    p1Score = 0; p2Score = 0;
+    selectedCell = null;
+    
+    document.getElementById('mistake-count').textContent = '0';
+    document.getElementById('win-screen').classList.add('hidden');
+    document.getElementById('solo-status').classList.toggle('hidden', mode !== 'solo');
+    document.getElementById('pvp-scoreboard').classList.toggle('hidden', mode === 'solo');
+
+    generatePuzzle(document.getElementById('difficulty').value);
+
+    if (mode === 'solo') {
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            timer++;
+            const m = Math.floor(timer / 60).toString().padStart(2, '0');
+            const s = (timer % 60).toString().padStart(2, '0');
+            document.getElementById('time').textContent = `${m}:${s}`;
+        }, 1000);
+    } else {
+        clearInterval(timerInterval);
+        updatePvPDisplay();
+    }
+    renderBoard();
 }
 
-/* --- Multiplayer Scoreboard --- */
-.score-box {
-    padding: 6px 12px;
-    border-radius: 8px;
-    opacity: 0.4;
-    transition: all 0.3s ease;
-    border: 2px solid transparent;
-    background: var(--surface);
+function checkWin() {
+    if (!board.flat().includes(0) && isPlaying) {
+        isPlaying = false;
+        clearInterval(timerInterval);
+        playBeep(500, 0.5);
+        
+        const winScreen = document.getElementById('win-screen');
+        const winTitle = document.getElementById('win-title');
+        const winSub = document.getElementById('win-subtitle');
+        
+        winScreen.classList.remove('hidden');
+        if (gameMode === 'solo') {
+            winTitle.textContent = "🎉 You Won! 🎉";
+            winSub.textContent = `Time: ${document.getElementById('time').textContent}`;
+        } else {
+            const winner = p1Score > p2Score ? "Player 1" : (p2Score > p1Score ? "Player 2" : "It's a Tie");
+            winTitle.textContent = `🏆 ${winner} Wins! 🏆`;
+            winSub.textContent = `Score: P1(${p1Score}) - P2(${p2Score})`;
+        }
+    }
 }
 
-.p1-active {
-    opacity: 1;
-    border-color: var(--p1-color);
-    color: var(--p1-color);
-    box-shadow: 0 0 10px rgba(41, 128, 185, 0.2);
-}
+// --- Event Listeners ---
+document.querySelectorAll('.num-btn').forEach(btn => {
+    btn.onclick = () => handleInput(parseInt(btn.dataset.val));
+});
 
-.p2-active {
-    opacity: 1;
-    border-color: var(--p2-color);
-    color: var(--p2-color);
-    box-shadow: 0 0 10px rgba(192, 57, 43, 0.2);
-}
+document.getElementById('btn-erase').onclick = () => handleInput(0);
+document.getElementById('btn-new').onclick = () => startNewGame('solo');
+document.getElementById('btn-pvp').onclick = () => startNewGame('pvp');
+document.getElementById('btn-play-again').onclick = () => {
+    document.getElementById('win-screen').classList.add('hidden');
+    startNewGame(gameMode);
+};
 
-/* --- Sudoku Grid Logic --- */
-.sudoku-grid {
-    display: grid;
-    grid-template-columns: repeat(9, 1fr);
-    width: 100%;
-    aspect-ratio: 1; /* Maintains square shape */
-    border: 3px solid var(--border-thick);
-    background: var(--border-thick);
-    gap: 1px;
-    border-radius: 4px;
-    overflow: hidden;
-}
+document.getElementById('btn-hint').onclick = () => {
+    if (!selectedCell || !isPlaying) return;
+    const [r, c] = selectedCell;
+    if (board[r][c] === 0) handleInput(solution[r][c]);
+};
 
-.cell {
-    background: var(--cell-bg);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 1.5rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s;
-}
+document.getElementById('btn-solve').onclick = () => {
+    board = solution.map(row => [...row]);
+    renderBoard();
+};
 
-/* Thick borders for 3x3 sub-grids */
-.cell:nth-child(3n) { border-right: 2px solid var(--border-thick); }
-.cell:nth-child(9n) { border-right: none; }
-.cell:nth-child(n+19):nth-child(-n+27),
-.cell:nth-child(n+46):nth-child(-n+54) { border-bottom: 2px solid var(--border-thick); }
+document.getElementById('theme-toggle').onclick = () => {
+    document.body.classList.toggle('dark');
+};
 
-/* Cell States */
-.cell.fixed { background: var(--cell-fixed); color: var(--text); }
-.cell.selected { background: var(--cell-selected) !important; }
-.cell.highlight { background: var(--cell-highlight); }
-.cell.error { background: var(--error-bg); color: var(--error); }
-.cell.user-input { color: var(--primary); }
+// Keyboard Support
+document.onkeydown = (e) => {
+    if (e.key >= '1' && e.key <= '9') handleInput(parseInt(e.key));
+    if (e.key === 'Backspace' || e.key === 'Delete') handleInput(0);
+};
 
-/* Multiplayer Ownership Styles */
-.cell.p1-owned { color: var(--p1-color); font-weight: 800; }
-.cell.p2-owned { color: var(--p2-color); font-weight: 800; }
-
-.cell.animation-pop {
-    animation: pop 0.2s ease-out;
-}
-
-@keyframes pop {
-    0% { transform: scale(0.85); }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); }
-}
-
-/* --- Controls & Inputs --- */
-.controls, .numpad {
-    display: grid;
-    gap: 8px;
-}
-
-.controls { grid-template-columns: repeat(4, 1fr); }
-.numpad { grid-template-columns: repeat(5, 1fr); }
-
-button, select {
-    background: var(--surface);
-    color: var(--text);
-    border: 1px solid var(--border);
-    padding: 10px 5px;
-    border-radius: 8px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: 0.2s;
-    box-shadow: 0 2px 4px var(--btn-shadow);
-}
-
-button:active {
-    transform: scale(0.96);
-    box-shadow: none;
-}
-
-.pvp-btn {
-    border-color: #f39c12;
-    color: #f39c12;
-}
-
-.numpad button {
-    font-size: 1.4rem;
-    padding: 14px 0;
-}
-
-/* --- Win Screen Overlay --- */
-#win-screen {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.85);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-    backdrop-filter: blur(4px);
-}
-
-.win-content {
-    background: var(--surface);
-    padding: 40px;
-    border-radius: 20px;
-    text-align: center;
-    max-width: 80%;
-    animation: slideUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.win-content h2 {
-    margin-bottom: 10px;
-    font-size: 2rem;
-    color: #f1c40f;
-}
-
-.win-content button {
-    margin-top: 20px;
-    background: var(--primary);
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    font-size: 1.1rem;
-}
-
-@keyframes slideUp {
-    0% { transform: translateY(100px); opacity: 0; }
-    100% { transform: translateY(0); opacity: 1; }
-}
+// Init Game
+startNewGame('solo');
