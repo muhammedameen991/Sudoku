@@ -1,119 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-
-    <title>Sudoku PWA</title>
-
-    <!-- Styles -->
-    <link rel="stylesheet" href="style.css" />
-
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="manifest.json" />
-    <meta name="theme-color" content="#ffffff" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sudoku Pro PWA</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3498db">
 </head>
-
 <body class="light">
-
-    <!-- Main App Wrapper -->
     <div class="app-container">
-
-        <!-- Header -->
-        <header class="app-header">
+        <header>
             <h1>Sudoku</h1>
-
             <div class="header-controls">
-                <!-- Difficulty Selector -->
-                <select id="difficulty" aria-label="Select difficulty">
+                <select id="difficulty">
                     <option value="easy">Easy</option>
                     <option value="medium" selected>Medium</option>
                     <option value="hard">Hard</option>
                 </select>
-
-                <!-- Theme Toggle -->
-                <button id="theme-toggle" aria-label="Toggle theme">🌙</button>
+                <button id="theme-toggle" aria-label="Toggle Dark Mode">🌙</button>
             </div>
         </header>
 
-        <!-- Game Status Bar -->
-        <section class="status-bar">
+        <div id="solo-status" class="status-bar">
+            <div class="timer">⏱️ <span id="time">00:00</span></div>
+            <div class="mistakes">Mistakes: <span id="mistake-count">0</span>/3</div>
+            <label class="toggle-label"><input type="checkbox" id="auto-check" checked> Tips</label>
+        </div>
 
-            <div class="timer">
-                ⏱️ <span id="time">00:00</span>
-            </div>
+        <div id="pvp-scoreboard" class="status-bar hidden">
+            <div id="p1-score-box" class="score-box p1-active">P1: <span id="p1-score">0</span></div>
+            <div id="p2-score-box" class="score-box">P2: <span id="p2-score">0</span></div>
+        </div>
 
-            <div class="mistakes">
-                Mistakes: <span id="mistake-count">0</span>/3
-            </div>
+        <div id="game-board" class="sudoku-grid"></div>
 
-            <!-- Auto Validation Toggle -->
-            <label class="toggle-label">
-                <input type="checkbox" id="auto-check" checked />
-                Validation
-            </label>
-
-        </section>
-
-        <!-- Sudoku Board -->
-        <main id="game-board" class="sudoku-grid">
-            <!-- Cells generated via JS -->
-        </main>
-
-        <!-- Game Controls -->
-        <section class="controls">
+        <div class="controls">
             <button id="btn-hint">💡 Hint</button>
             <button id="btn-solve">🪄 Solve</button>
-            <button id="btn-reset">🔄 Reset</button>
-            <button id="btn-new">➕ New Game</button>
-        </section>
+            <button id="btn-new">➕ Solo</button>
+            <button id="btn-pvp" class="pvp-btn">⚔️ PvP</button>
+        </div>
 
-        <!-- Number Pad -->
-        <section class="numpad">
-
-            <div class="num-buttons">
-                <button class="num-btn" data-val="1">1</button>
-                <button class="num-btn" data-val="2">2</button>
-                <button class="num-btn" data-val="3">3</button>
-                <button class="num-btn" data-val="4">4</button>
-                <button class="num-btn" data-val="5">5</button>
-                <button class="num-btn" data-val="6">6</button>
-                <button class="num-btn" data-val="7">7</button>
-                <button class="num-btn" data-val="8">8</button>
-                <button class="num-btn" data-val="9">9</button>
-            </div>
-
-            <!-- Erase Button -->
+        <div class="numpad">
+            <button class="num-btn" data-val="1">1</button>
+            <button class="num-btn" data-val="2">2</button>
+            <button class="num-btn" data-val="3">3</button>
+            <button class="num-btn" data-val="4">4</button>
+            <button class="num-btn" data-val="5">5</button>
+            <button class="num-btn" data-val="6">6</button>
+            <button class="num-btn" data-val="7">7</button>
+            <button class="num-btn" data-val="8">8</button>
+            <button class="num-btn" data-val="9">9</button>
             <button id="btn-erase" class="action-btn">⌫</button>
-
-        </section>
-
-    </div>
-
-    <!-- Win Screen -->
-    <div id="win-screen" class="hidden">
-        <div class="win-content">
-            <h2>🎉 You Won! 🎉</h2>
-
-            <p>
-                Time: <span id="win-time">00:00</span>
-            </p>
-
-            <button id="btn-play-again">Play Again</button>
         </div>
     </div>
 
-    <!-- Scripts -->
-    <script src="script.js"></script>
+    <div id="win-screen" class="hidden">
+        <div class="win-content">
+            <h2 id="win-title">🎉 You Won! 🎉</h2>
+            <p id="win-subtitle"></p>
+            <button id="btn-play-again">New Game</button>
+        </div>
+    </div>
 
-    <!-- Service Worker -->
+    <script src="script.js"></script>
     <script>
-        if ("serviceWorker" in navigator) {
-            navigator.serviceWorker.register("service-worker.js")
-                .then(() => console.log("Service Worker Registered"))
-                .catch(err => console.log("SW registration failed:", err));
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js');
         }
     </script>
-
 </body>
 </html>
